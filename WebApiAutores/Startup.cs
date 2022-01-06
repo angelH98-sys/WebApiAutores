@@ -1,4 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using WebApiAutores.Filtros;
+using WebApiAutores.Middlewares;
+using WebApiAutores.Servicios;
 
 namespace WebApiAutores
 {
@@ -14,16 +18,43 @@ namespace WebApiAutores
         public void ConfigureServices(IServiceCollection services) 
         {
 
-            services.AddControllers().AddJsonOptions(x => x.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles);
+            services.AddControllers(opciones => 
+            {
+                opciones.Filters.Add(typeof(FiltroDeExcepcion));
+            }).AddJsonOptions(x => x.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles);
 
             services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(Configuration.GetConnectionString("defaultConnection")));
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+
+            services.AddTransient<IServicio, IServicioA>();
+            services.AddTransient<ServicioTranscient>();
+            services.AddSingleton<ServicioSingleton>();
+            services.AddScoped<ServicioScoped>();
+
+            services.AddHostedService<EscribirEnArchivo>();
+
+            services.AddTransient<MiFiltroDeAccion>();
+
+            services.AddResponseCaching();
+
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+
             services.AddEndpointsApiExplorer();
             services.AddSwaggerGen();
         }
 
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env) 
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
+
+            app.UseMiddleware<LogearRespuestaHTTPMiddleware>();
+
+            app.Map("/ruta1", app =>
+            {
+                app.Run(async contexto =>
+                {
+                    await contexto.Response.WriteAsync("Estoy interceptando la tuberia");
+                }); 
+            });
 
             if (env.IsDevelopment())
             {
@@ -34,6 +65,8 @@ namespace WebApiAutores
             app.UseHttpsRedirection();
 
             app.UseRouting();
+
+            app.UseResponseCaching();
 
             app.UseAuthorization();
 
